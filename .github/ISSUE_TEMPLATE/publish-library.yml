@@ -1,0 +1,48 @@
+name: Publish a library
+description: Submit a Luau library to the public package registry
+title: "[Package]: "
+labels:
+  - package-submission
+
+body:
+  - type: input
+    id: package_name
+    attributes:
+      label: Package name
+      description: Use lowercase letters, numbers, and hyphens.
+      placeholder: cool-math
+    validations:
+      required: true
+
+  - type: input
+    id: module_name
+    attributes:
+      label: ModuleScript name
+      placeholder: CoolMath
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: 1.0.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      placeholder: Extra math functions for Luau
+    validations:
+      required: true
+
+  - type: textarea
+    id: source
+    attributes:
+      label: Source code
+      description: Paste the complete ModuleScript source.
+      render: lua
+    validations:
+      required: true
