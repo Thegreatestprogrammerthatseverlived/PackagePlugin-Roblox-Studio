@@ -2,11 +2,11 @@
   "math-plus": {
     "name": "MathPlus",
     "description": "Extra math functions for Luau",
-    "author": "YourGitHubUsername",
+    "author": "Thegreatestprogrammerthatseverlived",
     "latest": "1.0.0",
     "versions": {
       "1.0.0": {
-        "url": "https://raw.githubusercontent.com/YourGitHubUsername/YourRepository/main/packages/math-plus/1.0.0.lua"
+        "url": "https://raw.githubusercontent.com/Thegreatestprogrammerthatseverlived/PackagePlugin-Roblox-Studio/main/packages/math-plus/1.0.0.lua"
       }
     }
   }
