@@ -9,5 +9,16 @@
         "url": "https://raw.githubusercontent.com/Thegreatestprogrammerthatseverlived/PackagePlugin-Roblox-Studio/refs/heads/main/packages/math-plus/1.0.0.lua"
       }
     }
+  },
+  "test": {
+    "name": "Test",
+    "description": "A test library",
+    "author": "Thegreatestprogrammerthatseverlived",
+    "latest": "1.0.0",
+    "versions": {
+      "1.0.0": {
+        "url": "https://raw.githubusercontent.com/Thegreatestprogrammerthatseverlived/PackagePlugin-Roblox-Studio/refs/heads/main/packages/test/1.0.0.lua"
+      }
+    }
   }
 }
