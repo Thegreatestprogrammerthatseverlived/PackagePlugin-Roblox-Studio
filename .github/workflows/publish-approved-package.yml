@@ -1,0 +1,196 @@
+name: Publish approved package
+
+on:
+  issues:
+    types:
+      - labeled
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  publish:
+    if: github.event.label.name == 'approved'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Publish package
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = context.payload.issue;
+            const body = issue.body ?? "";
+
+            const hasSubmissionLabel = issue.labels.some((label) => {
+              const name = typeof label === "string" ? label : label.name;
+              return name === "package-submission";
+            });
+
+            if (!hasSubmissionLabel) {
+              core.setFailed(
+                "This issue does not have the package-submission label."
+              );
+              return;
+            }
+
+            function escapeRegex(text) {
+              return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            }
+
+            function readSection(title) {
+              const pattern = new RegExp(
+                `###\\s+${escapeRegex(title)}\\s*\\n+([\\s\\S]*?)(?=\\n###\\s+|$)`,
+                "i"
+              );
+
+              const match = body.match(pattern);
+
+              if (!match) {
+                throw new Error(`Missing issue field: ${title}`);
+              }
+
+              return match[1].trim();
+            }
+
+            const packageName = readSection("Package name").toLowerCase();
+            const moduleName = readSection("ModuleScript name");
+            const version = readSection("Version");
+            const description = readSection("Description");
+
+            let source = readSection("Source code");
+
+            source = source
+              .replace(/^```(?:lua|luau)?\s*\n?/i, "")
+              .replace(/\n?```\s*$/i, "")
+              .trim();
+
+            if (!/^[a-z0-9][a-z0-9-]{0,49}$/.test(packageName)) {
+              throw new Error(
+                "Package names may only contain lowercase letters, numbers, and hyphens."
+              );
+            }
+
+            if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(moduleName)) {
+              throw new Error("The ModuleScript name is invalid.");
+            }
+
+            if (!/^\d+\.\d+\.\d+$/.test(version)) {
+              throw new Error("The version must look like 1.0.0.");
+            }
+
+            if (source.length === 0) {
+              throw new Error("The source code is empty.");
+            }
+
+            if (source.length > 500000) {
+              throw new Error("The source code is too large.");
+            }
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const repository = await github.rest.repos.get({
+              owner,
+              repo
+            });
+
+            const branch = repository.data.default_branch;
+            const packagePath =
+              `packages/${packageName}/${version}.lua`;
+
+            try {
+              await github.rest.repos.getContent({
+                owner,
+                repo,
+                path: packagePath,
+                ref: branch
+              });
+
+              throw new Error(
+                `${packageName}@${version} already exists.`
+              );
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
+
+            await github.rest.repos.createOrUpdateFileContents({
+              owner,
+              repo,
+              branch,
+              path: packagePath,
+              message: `Publish ${packageName}@${version}`,
+              content: Buffer.from(source, "utf8").toString("base64")
+            });
+
+            const registryResult =
+              await github.rest.repos.getContent({
+                owner,
+                repo,
+                path: "registry.json",
+                ref: branch
+              });
+
+            if (Array.isArray(registryResult.data)) {
+              throw new Error("registry.json is not a file.");
+            }
+
+            const registryText = Buffer.from(
+              registryResult.data.content,
+              "base64"
+            ).toString("utf8");
+
+            const registry = JSON.parse(registryText);
+
+            const existing = registry[packageName] ?? {
+              name: moduleName,
+              description,
+              author: issue.user.login,
+              latest: version,
+              versions: {}
+            };
+
+            existing.name = moduleName;
+            existing.description = description;
+            existing.author ??= issue.user.login;
+            existing.latest = version;
+            existing.versions ??= {};
+
+            existing.versions[version] = {
+              url:
+                `https://raw.githubusercontent.com/${owner}/${repo}` +
+                `/refs/heads/${branch}/${packagePath}`
+            };
+
+            registry[packageName] = existing;
+
+            await github.rest.repos.createOrUpdateFileContents({
+              owner,
+              repo,
+              branch,
+              path: "registry.json",
+              message: `Update registry for ${packageName}@${version}`,
+              sha: registryResult.data.sha,
+              content: Buffer.from(
+                JSON.stringify(registry, null, 2) + "\n",
+                "utf8"
+              ).toString("base64")
+            });
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issue.number,
+              body:
+                `Published **${packageName}@${version}** successfully.`
+            });
+
+            await github.rest.issues.update({
+              owner,
+              repo,
+              issue_number: issue.number,
+              state: "closed"
+            });
